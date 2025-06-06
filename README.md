@@ -4,7 +4,7 @@ Download genomes, genes and catalogs of the [OMDB](https://omdb.microbiomics.io/
 
 ## Installation:
 
-The tool is written in Python (tested with >=3.9) and requires no further dependencies.
+The tool is written in Python (tested with >=3.9), works without any further python dependencies and was tested on MacOS and Linux.
 
 ```bash
 $ git clone git@github.com:SushiLab/omdb-download.git
