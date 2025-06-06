@@ -123,18 +123,20 @@ output_folder/JAHN19-1/JAHN19-1_SAMN10953132_MAG_00000001.fa.gz
 Download a catalog:
 
 ```bash
-$ python omdb-download.py download -i OMDBv2.0_AA_G_NR30 -o output_folder
+$ python omdb-download.py download -i OMDBv2.0_AA_G_NR50 -o output_folder
 Downloading catalogs...
-	Downloading catalog OMDBv2.0_AA_G_NR30...
-	Downloading sequence file to output_folder/OMDBv2.0_AA_G_NR30.faa.gz
-[########################################] 100.00% 2236.8MB 18.1MB/s
+	Downloading catalog OMDBv2.0_AA_G_NR50...
+	Downloading sequence file to output_folder/OMDBv2.0_AA_G_NR50.faa.gz
+######################################################################################################################################################### 100.0%
+
 Download complete.
 	Finished downloading sequence file...
-	Downloading cluster file to output_folder/OMDBv2.0_AA_G_NR30.cluster.tsv.gz
-[########################################] 100.00% 3997.7MB 16.0MB/s
+	Downloading cluster file to output_folder/OMDBv2.0_AA_G_NR50.cluster.tsv.gz
+######################################################################################################################################################### 100.0%
+
 Download complete.
 	Finished downloading cluster file...
-Finished downloading catalogs...
+Finished downloading catalogs..
 ```
 
 
