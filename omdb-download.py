@@ -1,6 +1,6 @@
 import argparse
 import sys
-import urllib.request
+
 import time
 import sys
 import pathlib
@@ -8,49 +8,103 @@ import gzip
 import collections
 import os
 
+
+import subprocess
+import os
+import sys
+import time
+import shutil
+
 def download_file(url, dest, show_progress=False):
+    dest_path = os.path.dirname(dest)
+    dest_tmp_fname = '.' + os.path.basename(dest) + ".tmp"
+    dest_path_tmp = os.path.join(dest_path, dest_tmp_fname)
+
     try:
-        with urllib.request.urlopen(url) as response:
-            total_size = response.getheader('Content-Length')
-            total_size = int(total_size) if total_size else None
-            block_size = 8192
-            downloaded = 0
-            start_time = time.time()
+        # Build curl command
+        cmd = [
+            "curl",
+            "-fL",  # fail on server errors, follow redirects
+            url,
+            "-o", dest_path_tmp
+        ]
 
-            with open(dest, 'wb') as out_file:
-                while True:
-                    buffer = response.read(block_size)
-                    if not buffer:
-                        break
-                    out_file.write(buffer)
-                    downloaded += len(buffer)
+        if show_progress:
+            cmd.append("--progress-bar")
+        else:
+            cmd.append("--silent")
 
-                    if show_progress and total_size:
-                        elapsed = time.time() - start_time
-                        speed = downloaded / elapsed if elapsed > 0 else 0
-                        percent = (downloaded / total_size) * 100
-                        bar_length = 40
-                        filled = int(bar_length * downloaded / total_size)
-                        bar = '#' * filled + '-' * (bar_length - filled)
-                        sys.stdout.write(
-                            f"\r[{bar}] {percent:6.2f}% "
-                            f"{downloaded/1024/1024:.1f}MB "
-                            f"{speed/1024/1024:.1f}MB/s"
-                        )
-                        sys.stdout.flush()
+        # Run curl
+        result = subprocess.run(cmd, check=True)
 
-        if show_progress and total_size:
+        # Rename only if curl succeeds
+        os.rename(dest_path_tmp, dest)
+        if show_progress:
             print("\nDownload complete.")
-    except (Exception, KeyboardInterrupt) as e:
-        # Clean up if download was interrupted or failed
-        if os.path.exists(dest):
+
+    except subprocess.CalledProcessError as e:
+        if os.path.exists(dest_path_tmp):
             try:
-                os.remove(dest)
-                print(f"Partial file '{dest}' removed due to error.")
+                os.remove(dest_path_tmp)
+                print(f"Partial file '{dest_path_tmp}' removed due to error.")
             except Exception as cleanup_error:
                 print(f"Failed to remove partial file: {cleanup_error}")
         print(f"Download failed: {e}")
         sys.exit(1)
+    except KeyboardInterrupt:
+        if os.path.exists(dest_path_tmp):
+            os.remove(dest_path_tmp)
+            print(f"\nDownload interrupted. Partial file '{dest_path_tmp}' removed.")
+        sys.exit(1)
+
+# def download_file(url, dest, show_progress=False):
+#     try:
+#         with requests.get(url, stream=True, timeout=10) as response:
+#             response.raise_for_status()  # Raise error for HTTP codes like 404, 500
+#             total_size = int(response.headers.get('Content-Length', 0))
+#             downloaded = 0
+#             start_time = time.time()
+#             dest_path = dest.rsplit('/', 1)[0]
+#             dest_tmp_fname = '.' + dest.split('/')[-1] + ".tmp"
+#             dest_path_tmp = dest_path + '/' + dest_tmp_fname
+#
+#
+#             with open(dest_path_tmp, 'wb') as out_file:
+#                 for chunk in response.iter_content(chunk_size=8192):
+#                     if chunk:  # skip keep-alive chunks
+#                         out_file.write(chunk)
+#                         downloaded += len(chunk)
+#
+#                     if show_progress and total_size:
+#                         elapsed = time.time() - start_time
+#                         speed = downloaded / elapsed if elapsed > 0 else 0
+#                         percent = (downloaded / total_size) * 100
+#                         bar_length = 40
+#                         filled = int(bar_length * downloaded / total_size)
+#                         bar = '#' * filled + '-' * (bar_length - filled)
+#                         sys.stdout.write(
+#                             f"\r[{bar}] {percent:6.2f}% "
+#                             f"{downloaded/1024/1024:.1f}MB "
+#                             f"{speed/1024/1024:.1f}MB/s"
+#                         )
+#                         sys.stdout.flush()
+#         if total_size and downloaded != total_size:
+#             raise IOError(f"Incomplete download: {downloaded} bytes vs {total_size} expected")
+#             sys.exit(1)
+#         os.rename(dest_path_tmp, dest)
+#         if show_progress and total_size:
+#             print("\nDownload complete.")
+#     except (requests.RequestException, IOError, KeyboardInterrupt) as e:
+#         # Clean up if download was interrupted or failed
+#         if os.path.exists(dest_path_tmp):
+#             try:
+#                 os.remove(dest_path_tmp)
+#                 print(f"Partial file '{dest_path_tmp}' removed due to error.")
+#             except Exception as cleanup_error:
+#                 print(f"Failed to remove partial file: {cleanup_error}")
+#         print(f"Download failed: {e}")
+#         sys.exit(1)
+
 
 
 def progress_bar(current, total, width=40):
@@ -131,7 +185,7 @@ def main():
             (description, f1, f2) = catalogs[catalog]
             print(f'{catalog} - {description}')
         print('\n')
-        print(f'Example 1 - Download a catalog:\n\tpython omdb-downloader.py download -i {catalog} -o output_folder')
+        print(f'Example 1 - Download a catalog:\n\tpython omdb-download.py download -i {catalog} -o output_folder')
         print('\n')
         print('############# All Genomes/Genes ##############')
         print('\n')
@@ -141,7 +195,7 @@ def main():
         print(f'all_genomes - {total_genomes} genome files')
         print(f'all_genes - {total_genomes * 3} genes files - (nucl + aa + gff)')
         print('\n')
-        print(f'Example 2 - download all genome files:\n\tpython omdb-downloader.py download -i all_genomes -o output_folder')
+        print(f'Example 2 - download all genome files:\n\tpython omdb-download.py download -i all_genomes -o output_folder')
         print('\n')
 
         print('\n')
@@ -150,8 +204,8 @@ def main():
         for study, genome_count in studies.most_common():
             print(f'{study} - {genome_count * 4} files - {genome_count} genome(s) files, {genome_count * 3} gene file(s) - (nucl + aa + gff) ')
         print('\n')
-        print(f'Example 3 - download genes and genomes from one study:\n\tpython omdb-downloader.py download -i HETI17-1 -o output_folder')
-        print(f'Example 4 - download genes and genomes from two studies:\n\tpython omdb-downloader.py download -i HETI17-1 JAHN19-1 -o output_folder')
+        print(f'Example 3 - download genes and genomes from one study:\n\tpython omdb-download.py download -i HETI17-1 -o output_folder')
+        print(f'Example 4 - download genes and genomes from two studies:\n\tpython omdb-download.py download -i HETI17-1 JAHN19-1 -o output_folder')
     elif args.command == "download":
         if not args.i:
             print("Error: -i/--items must include at least one item")
