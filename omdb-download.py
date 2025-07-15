@@ -1,19 +1,97 @@
-import argparse
-import sys
-
-import time
-import sys
 import pathlib
 import gzip
 import collections
-import os
-
-
 import subprocess
 import os
-import sys
-import time
-import shutil
+
+
+class Genomes:
+    genomes = None
+
+    def __init__(self, all_genomes):
+        self.genomes = all_genomes
+    def __init__(self):
+        self.genomes = []
+    def add(self, genome):
+        self.genomes.append(genome)
+
+    def get_genomes(self):
+        return set([x.genome for x in self.genomes])
+    def get_genomes_by_study(self, study):
+        return set([x for x in self.get_genomes() if x[1] == study])
+
+    def get_genes(self):
+        return set([x.gene_nucl for x in self.genomes] + [x.gene_aa for x in self.genomes] + [x.gene_gff for x in self.genomes])
+    def get_genes_by_study(self, study):
+        return set([x for x in self.get_genes() if x[1] == study])
+
+    def get_rrna(self):
+        return set([x.rrna for x in self.genomes])
+    def get_rrna_by_study(self, study):
+        return set([x for x in self.get_rrna() if x[1] == study])
+
+    def get_trna(self):
+        return set([x.trna for x in self.genomes])
+    def get_trna_by_study(self, study):
+        return set([x for x in self.get_trna() if x[1] == study])
+
+    def get_antismash(self):
+        return set([x.antismash for x in self.genomes])
+    def get_antismash_by_study(self, study):
+        return set([x for x in self.get_antismash() if x[1] == study])
+
+
+    def get_kegg(self):
+        return set([x.kegg for x in self.genomes])
+    def get_kegg_by_study(self, study):
+        return set([x for x in self.get_kegg() if x[1] == study])
+
+
+    def get_pfam(self):
+        return set([x.pfam for x in self.genomes])
+    def get_pfam_by_study(self, study):
+        return set([x for x in self.get_pfam() if x[1] == study])
+
+
+    def get_eggnog(self):
+        return set([x.eggnog for x in self.genomes])
+    def get_eggnog_by_study(self, study):
+        return set([x for x in self.get_eggnog() if x[1] == study])
+
+    def get_study(self, study):
+        files = set().union(*[self.get_genes_by_study(study), self.get_genomes_by_study(study), self.get_rrna_by_study(study), self.get_trna_by_study(study), self.get_antismash_by_study(study), self.get_kegg_by_study(study), self.get_pfam_by_study(study), self.get_eggnog_by_study(study)])
+        return files
+class Genome:
+
+    genome = None
+    gene_nucl = None
+    gene_aa = None
+    gene_gff = None
+    rrna = None
+    trna = None
+    antismash = None
+    kegg = None
+    pfam = None
+    eggnog = None
+
+
+    def __init__(self, source_genome_path, study, genome_fna):
+        source_genome_path = 'https://sunagawalab.ethz.ch/share/microbiomics/ocean/db/2.0/data/genomes/genomes/' + source_genome_path.split('./', 1)[-1]
+        self.genome = (source_genome_path, study, genome_fna)
+
+        self.gene_nucl = (source_genome_path.replace('.fa.gz', '.genes.fna.gz'), study, genome_fna.replace('.fa.gz', '.genes.fna.gz'))
+        self.gene_aa = (source_genome_path.replace('.fa.gz', '.genes.faa.gz'), study, genome_fna.replace('.fa.gz', '.genes.faa.gz'))
+        self.gene_gff = (source_genome_path.replace('.fa.gz', '.genes.gff.gz'), study, genome_fna.replace('.fa.gz', '.genes.gff.gz'))
+
+        self.rrna = (source_genome_path.replace('.fa.gz', '.barrnap.0.9.fna.gz'), study, genome_fna.replace('.fa.gz', '.barrnap.0.9.fna.gz'))
+        self.trna = (source_genome_path.replace('.fa.gz', '.aragorn.1.2.41.tsv.gz'), study, genome_fna.replace('.fa.gz', '.aragorn.1.2.41.tsv.gz'))
+        self.antismash = (source_genome_path.replace('.fa.gz', '-antismash.tar.gz'), study, genome_fna.replace('.fa.gz', '-antismash.tar.gz'))
+        self.kegg = (source_genome_path.replace('.fa.gz', '.kegg.apr22.tsv.gz'), study, genome_fna.replace('.fa.gz', '.kegg.apr22.tsv.gz'))
+        self.pfam = (source_genome_path.replace('.fa.gz', '.eggnog.2.1.7-5.0.2.tsv.gz'), study,genome_fna.replace('.fa.gz', '.eggnog.2.1.7-5.0.2.tsv.gz'))
+        self.eggnog = (source_genome_path.replace('.fa.gz', '.pfam.37.1.tsv.gz'), study,genome_fna.replace('.fa.gz', '.pfam.37.1.tsv.gz'))
+
+
+
 
 def download_file(url, dest, show_progress=False):
     dest_path = os.path.dirname(dest)
@@ -36,7 +114,6 @@ def download_file(url, dest, show_progress=False):
 
         # Run curl
         result = subprocess.run(cmd, check=True)
-
         # Rename only if curl succeeds
         os.rename(dest_path_tmp, dest)
         if show_progress:
@@ -107,6 +184,9 @@ def download_file(url, dest, show_progress=False):
 
 
 
+
+
+
 def progress_bar(current, total, width=40):
     progress = int(width * current / total)
     bar = "[" + "#" * progress + "-" * (width - progress) + f"] {current}/{total}"
@@ -115,23 +195,25 @@ def progress_bar(current, total, width=40):
 
 def read_map_file():
     studies = collections.Counter()
-    study_2_files = collections.defaultdict(list)
-    all_genomes = set()
-    all_genes = set()
+    all_genomes = Genomes()
 
-    with gzip.open('omdb-download.tsv.gz', 'rt') as handle:
+    with gzip.open('omdb-download.v2.tsv.gz', 'rt') as handle:
         for cnt, line in enumerate(handle, 1):
             line = line.strip()
             [_, study, other] = line.split('/', 2)
             fname = other.split('/')[-1]
             if fname.endswith('.fa.gz'):
                 studies[study] += 1
-                all_genomes.add((line, study, fname))
+                g = Genome(line, study, fname)
+                all_genomes.add(g)
             else:
-                all_genes.add((line, study, fname))
-            study_2_files[study].append((line, study, fname))
+                print(f'unknown file {fname}')
 
-    return studies, study_2_files, all_genomes, all_genes
+
+
+    #
+
+    return studies, all_genomes#, all_genes
 
 
 
@@ -190,22 +272,30 @@ def main():
         print('############# All Genomes/Genes ##############')
         print('\n')
 
-        studies, study_2_files, all_genomes, all_genes = read_map_file()
+        studies, all_genomes = read_map_file()
         total_genomes = sum([int(x[1]) for x in studies.most_common()])
-        print(f'all_genomes - {total_genomes} genome files')
-        print(f'all_genes - {total_genomes * 3} genes files - (nucl + aa + gff)')
+        print(f'all_genomes - {total_genomes:,} genome files')
+        print(f'all_genes - {total_genomes * 3:,} genes files - (nucl + aa + gff)')
+        print(f'all_rrna - {total_genomes:,} barrnap files - (fna)')
+        print(f'all_trna - {total_genomes:,} aragorn files - (tsv)')
+        print(f'all_antismash - {total_genomes:,} antismash files - (tar)')
+        print(f'all_kegg - {total_genomes:,} kegg files - (tsv)')
+        print(f'all_eggnog - {total_genomes:,} eggnog files - (tsv)')
+        print(f'all_pfam - {total_genomes:,} pfam files - (tsv)')
+
         print('\n')
         print(f'Example 2 - download all genome files:\n\tpython omdb-download.py download -i all_genomes -o output_folder')
         print('\n')
 
         print('\n')
-        print('########### Per Study Genomes/Genes ###########')
+        print('########### Per Study Genomes/Genes/Annotation ###########')
         print('\n')
         for study, genome_count in studies.most_common():
-            print(f'{study} - {genome_count * 4} files - {genome_count} genome(s) files, {genome_count * 3} gene file(s) - (nucl + aa + gff) ')
+            print(f'{study} - {genome_count * 10:,} files - {genome_count:,} genome file(s), {genome_count * 3:,} gene files - (nucl + aa + gff) , {genome_count * 6:,} annotation files')
         print('\n')
-        print(f'Example 3 - download genes and genomes from one study:\n\tpython omdb-download.py download -i HETI17-1 -o output_folder')
-        print(f'Example 4 - download genes and genomes from two studies:\n\tpython omdb-download.py download -i HETI17-1 JAHN19-1 -o output_folder')
+        print(f'Example 3 - download genomes/genes/annotation from one study:\n\tpython omdb-download.py download -i HETI17-1 -o output_folder')
+        print(f'Example 4 - download genomes/genes/annotation from two studies:\n\tpython omdb-download.py download -i HETI17-1 JAHN19-1 -o output_folder')
+
     elif args.command == "download":
         if not args.i:
             print("Error: -i/--items must include at least one item")
@@ -217,21 +307,53 @@ def main():
                 catalogs_to_download.add(f)
         items_to_download = items_to_download - catalogs_to_download
 
-        studies, study_2_files, all_genomes, all_genes = read_map_file()
+        all_genomes: Genomes = None
+        studies, all_genomes = read_map_file()
+
+
         download_all_genomes = True if 'all_genomes' in items_to_download else False
         download_all_genes = True if 'all_genes' in items_to_download else False
+        download_all_rrna = True if 'all_rrna' in items_to_download else False
+        download_all_trna = True if 'all_trna' in items_to_download else False
+        download_all_antismash = True if 'all_antismash' in items_to_download else False
+        download_all_kegg = True if 'all_kegg' in items_to_download else False
+        download_all_eggnog = True if 'all_eggnog' in items_to_download else False
+        download_all_pfam = True if 'all_pfam' in items_to_download else False
         items_to_download.discard('all_genomes')
         items_to_download.discard('all_genes')
+        items_to_download.discard('all_rrna')
+        items_to_download.discard('all_trna')
+        items_to_download.discard('all_antismash')
+        items_to_download.discard('all_kegg')
+        items_to_download.discard('all_eggnog')
+        items_to_download.discard('all_pfam')
+
+
         files_to_download = set()
         if download_all_genomes:
-            files_to_download.update(all_genomes)
+            files_to_download.update(all_genomes.get_genomes())
         if download_all_genes:
-            files_to_download.update(all_genes)
+            files_to_download.update(all_genomes.get_genes())
+        if download_all_rrna:
+            files_to_download.update(all_genomes.get_rrna())
+        if download_all_trna:
+            files_to_download.update(all_genomes.get_rrna())
+        if download_all_antismash:
+            files_to_download.update(all_genomes.get_antismash())
+        if download_all_kegg:
+            files_to_download.update(all_genomes.get_kegg())
+        if download_all_eggnog:
+            files_to_download.update(all_genomes.get_eggnog())
+        if download_all_pfam:
+            files_to_download.update(all_genomes.get_pfam())
 
 
-        for study, files in study_2_files.items():
+
+
+
+        for study in studies.keys():
             if study in items_to_download:
-                files_to_download.update(files)
+                files_to_download.update(all_genomes.get_study(study))
                 items_to_download.discard(study)
         if len(items_to_download) != 0:
             print(f'Unknown items to download: {items_to_download}. Quitting.')
@@ -257,15 +379,14 @@ def main():
             print('Finished downloading catalogs...')
         if len(files_to_download) != 0:
             pathlib.Path(args.output).mkdir(exist_ok=True, parents=True)
-            print('Downloading genes/genomes...')
+            print('Downloading genes/genomes/annotations...')
             for cnt, (source, study, fname) in enumerate(files_to_download, 1):
                 progress_bar(cnt, len(files_to_download))
-                url = 'https://sunagawalab.ethz.ch/share/microbiomics/ocean/db/2.0/data/genomes/genomes/' + source.split('./', 1)[-1]
                 dest_folder = f'{args.output}/{study}/'
                 pathlib.Path(dest_folder).mkdir(exist_ok=True, parents=True)
                 dest = f'{args.output}/{study}/{fname}'
-                download_file(url, dest, False)
-            print('\nFinished downloading genes/genomes ...')
+                download_file(source, dest, False)
+            print('\nFinished downloading genes/genomes/annotations ...')
 
 
 
