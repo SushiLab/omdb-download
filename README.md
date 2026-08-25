@@ -1,3 +1,8 @@
+# UPDATE
+
+omdb-download tool is deprecated. Use the mOTUs tool to download genomes, genes and annotation files instead --> https://www.motus-tool.org/ 
+
+
 # omdb-download
 
 Download genomes, genes, annotations and catalogs of the [OMDB](https://omdb.microbiomics.io/) resource.
